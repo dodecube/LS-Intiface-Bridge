@@ -3,6 +3,16 @@
         xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Android 11 and earlier use install-time Bluetooth permissions. -->
+    <uses-permission
+            android:name="android.permission.BLUETOOTH"
+            android:maxSdkVersion="30" />
+    <uses-permission
+            android:name="android.permission.BLUETOOTH_ADMIN"
+            android:maxSdkVersion="30" />
+
+    <!-- Android 12+ runtime permissions. -->
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

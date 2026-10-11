@@ -14,6 +14,7 @@ import android.bluetooth.le.AdvertisingSetParameters
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -378,7 +379,8 @@ class BridgeService : Service() {
     private fun stopAdvertising() {
         mainHandler.removeCallbacks(schedulerRunnable)
         val set = advertisingSet
-        val advertiser = bluetoothAdvertiser()
+        val hasPermission = hasBluetoothPermissions()
+        val advertiser = if (hasPermission) bluetoothAdvertiser() else null
         if (advertiser != null) {
             if (isStartingAdvertising) {
                 pendingStop = true
@@ -393,7 +395,15 @@ class BridgeService : Service() {
         advertisingSet = null
         isStartingAdvertising = false
         activeChannel = ActiveChannel.NONE
-        publish("[BLE] Advertising stopped", bleStatus = "stopped", level = 0)
+        if (hasPermission) {
+            publish("[BLE] Advertising stopped", bleStatus = "stopped", level = 0)
+        } else {
+            publish(
+                "[BLE] Bluetooth permission unavailable; cleared local advertising state",
+                bleStatus = "permission denied",
+                level = 0,
+            )
+        }
     }
 
     private fun shutdown() {
@@ -412,11 +422,22 @@ class BridgeService : Service() {
         publish("Bridge stopped", webSocketStatus = "disconnected")
     }
 
-    private fun hasBluetoothPermissions(): Boolean =
-        ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADVERTISE) ==
-            PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) ==
-            PackageManager.PERMISSION_GRANTED
+    private fun hasBluetoothPermissions(): Boolean {
+        val required = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            listOf(
+                Manifest.permission.BLUETOOTH_ADVERTISE,
+                Manifest.permission.BLUETOOTH_CONNECT,
+            )
+        } else {
+            listOf(
+                Manifest.permission.BLUETOOTH,
+                Manifest.permission.BLUETOOTH_ADMIN,
+            )
+        }
+        return required.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
 
     private fun bluetoothAdvertiser() =
         (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager)

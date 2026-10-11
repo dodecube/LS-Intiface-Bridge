@@ -6,7 +6,7 @@ The app connects to Intiface Central's Device Websocket Server as a Lovense-comp
 
 ## Requirements
 
-- Android 12 or newer.
+- Android 11 (API 30) or newer.
 - Android device with BLE advertising support.
 - Intiface Central running on Windows.
 - Windows PC and Android device on the same network.
@@ -59,20 +59,21 @@ If the UI does not expose the name field, configure the user device config with 
 ## Android App Usage
 
 1. Build and install the debug APK.
-2. Grant Bluetooth/Nearby Devices permission.
-3. On Android 13 or newer, grant notification permission for the foreground service.
-4. Enter the Device Websocket Server URL, for example:
+2. On Android 11, Bluetooth permissions are granted at install time; make sure Bluetooth is turned on.
+3. On Android 12 or newer, grant the requested Nearby Devices permissions.
+4. On Android 13 or newer, notification permission is optional. Denying it does not prevent the bridge from running, though Android may show its foreground-service notification in a less visible place.
+5. Enter the Device Websocket Server URL, for example:
 
 ```text
 ws://192.168.0.2:54817
 ```
 
-5. Press `Start`.
-6. Start scanning in the Intiface client.
+6. Press `Start`.
+7. Start scanning in the Intiface client.
 
 The app stores the last websocket URL. While running, it uses a foreground notification with a `Stop` action.
 
-The test slider sends local BLE advertising levels without waiting for Intiface commands.
+The test sliders send local BLE advertising levels without waiting for Intiface commands.
 
 ## BLE Payload
 
@@ -85,23 +86,40 @@ Prefix:          6D B6 43 CE 97 FE 42 7C
 
 Lovense levels `0..20` are mapped to the original Love Spouse/MuSe command table from the ESP32 firmware.
 
-## Development
+## Development and APK build
 
-Main source files:
+### Build with Android Studio
 
-```text
-app/src/main/java/kr/glora/lsintifacebridge/MainActivity.kt
-app/src/main/java/kr/glora/lsintifacebridge/BridgeService.kt
-```
+1. Install Android Studio with **JDK 17** and Android SDK Platform **35**. Android Studio's bundled JDK 17 is suitable.
+2. Open the repository root (the folder containing `settings.gradle.kts`) in Android Studio and allow Gradle sync to finish.
+3. Select **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
+4. Android Studio will show a link to the generated APK. It is also written to:
 
-Build:
+   ```text
+   app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+### Build from a terminal
+
+The first build needs internet access to download Gradle and dependencies, plus an installed Android SDK Platform 35. Use JDK 17 to run the build.
+
+Linux/macOS:
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 .\gradlew.bat :app:assembleDebug
+```
+
+The resulting debug APK is signed with Android's debug key and can be installed for testing. It is not a Play Store release; publishing a release APK requires configuring a private signing key.
+
+## Source files
+
+```text
+app/src/main/java/kr/glora/lsintifacebridge/MainActivity.kt
+app/src/main/java/kr/glora/lsintifacebridge/BridgeService.kt
 ```

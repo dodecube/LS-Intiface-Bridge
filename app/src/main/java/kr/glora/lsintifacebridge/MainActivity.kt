@@ -50,21 +50,26 @@ class MainActivity : ComponentActivity() {
     private var testRotateLevel by mutableIntStateOf(10)
     private var logText by mutableStateOf("")
 
-    private val permissions: Array<String>
+    /** Runtime permissions exist only for Bluetooth on Android 12+, and notifications on 13+. */
+    private val runtimePermissions: Array<String>
         get() = buildList {
-            add(Manifest.permission.BLUETOOTH_ADVERTISE)
-            add(Manifest.permission.BLUETOOTH_CONNECT)
-            if (Build.VERSION.SDK_INT >= 33) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(Manifest.permission.BLUETOOTH_ADVERTISE)
+                add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }.toTypedArray()
 
     private val permissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-            if (result.values.all { it }) {
-                appendLog("Permissions granted")
-            } else {
-                appendLog("Permissions denied")
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            when {
+                !hasBluetoothPermissions() ->
+                    appendLog("Bluetooth permission denied. Grant Nearby Devices access to start the bridge.")
+                !hasNotificationPermission() ->
+                    appendLog("Bluetooth permissions granted. Notifications are disabled; the bridge can still run.")
+                else -> appendLog("Permissions granted")
             }
         }
 
@@ -191,7 +196,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startBridge() {
-        if (!hasPermissions()) {
+        if (!hasBluetoothPermissions()) {
+            appendLog("Bluetooth permission is required to start the bridge")
             requestMissingPermissions()
             return
         }
@@ -211,6 +217,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun testVibration(level: Int) {
+        if (!hasBluetoothPermissions()) {
+            appendLog("Bluetooth permission is required for BLE testing")
+            requestMissingPermissions()
+            return
+        }
         val intent = Intent(this, BridgeService::class.java)
             .setAction(BridgeService.ACTION_TEST_LEVEL)
             .putExtra(BridgeService.EXTRA_VIBRATION_LEVEL, level)
@@ -218,6 +229,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun testRotation(level: Int) {
+        if (!hasBluetoothPermissions()) {
+            appendLog("Bluetooth permission is required for BLE testing")
+            requestMissingPermissions()
+            return
+        }
         val intent = Intent(this, BridgeService::class.java)
             .setAction(BridgeService.ACTION_TEST_LEVEL)
             .putExtra(BridgeService.EXTRA_ROTATION_LEVEL, level)
@@ -225,6 +241,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun testBoth(vibeLevel: Int, rotateLevel: Int) {
+        if (!hasBluetoothPermissions()) {
+            appendLog("Bluetooth permission is required for BLE testing")
+            requestMissingPermissions()
+            return
+        }
         val intent = Intent(this, BridgeService::class.java)
             .setAction(BridgeService.ACTION_TEST_LEVEL)
             .putExtra(BridgeService.EXTRA_VIBRATION_LEVEL, vibeLevel)
@@ -241,7 +262,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestMissingPermissions() {
-        val missing = permissions.filter {
+        val missing = runtimePermissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
         if (missing.isNotEmpty()) {
@@ -249,10 +270,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun hasPermissions(): Boolean =
-        permissions.all {
+    /**
+     * Android 11 and earlier grant BLUETOOTH/BLUETOOTH_ADMIN at install time.
+     * Android 12+ requires the Nearby Devices runtime permissions instead.
+     */
+    private fun hasBluetoothPermissions(): Boolean {
+        val required = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            listOf(
+                Manifest.permission.BLUETOOTH_ADVERTISE,
+                Manifest.permission.BLUETOOTH_CONNECT,
+            )
+        } else {
+            listOf(
+                Manifest.permission.BLUETOOTH,
+                Manifest.permission.BLUETOOTH_ADMIN,
+            )
+        }
+        return required.all {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
+    }
+
+    /** Notifications are useful but are not required for the bridge to operate. */
+    private fun hasNotificationPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
 
     private fun appendLog(message: String) {
         logText = (logText + message + "\n").lines().takeLast(120).joinToString("\n")
