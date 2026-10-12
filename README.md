@@ -117,6 +117,10 @@ Windows PowerShell:
 
 The resulting debug APK is signed with Android's debug key and can be installed for testing. It is not a Play Store release; publishing a release APK requires configuring a private signing key.
 
+## Experimental Windows PC bridge
+
+A Windows/Python prototype that publishes the same BLE packets directly from a PC Bluetooth adapter is available in [`pc_bridge/`](pc_bridge/README.md). It is experimental: the adapter/driver must support BLE advertising, and Windows may introduce advertising gaps while commands change. The Android app remains the reference implementation until the PC version is tested with the target adapter and toy.
+
 ## Source files
 
 ```text
